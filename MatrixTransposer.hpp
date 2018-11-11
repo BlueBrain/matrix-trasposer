@@ -18,7 +18,7 @@ private:
     unsigned int cell_count;
   };
 
-  static int QsortCompare (const void * _a, const void * _b)
+  static int QSortCompare (const void * _a, const void * _b)
   {
     Metadata * a = static_cast<Metadata*> ((void*)_a);
     Metadata * b = static_cast<Metadata*> ((void*)_b);
@@ -30,7 +30,7 @@ private:
 
   static void SortCellsByCpuRowColumn(unsigned int col_count, unsigned int cell_count, Metadata * metadatas, T*& cells)
   {
-    qsort(metadatas,col_count, sizeof(Metadata), QsortCompare);
+    qsort(metadatas,col_count, sizeof(Metadata), QSortCompare);
  
     //now that the qsort ir ordered correctly, we will shuffle the elements 
     //of cells to follow the same order (by looking at the pointers of the structure data)
