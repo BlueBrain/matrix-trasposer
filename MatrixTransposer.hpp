@@ -52,7 +52,7 @@ private:
 public:
 
   /// Use-case 1: no pre-computed rank end offsets
-  static void Transpose(int row_count, T *& cells, unsigned int *& counts, unsigned int *& displs, unsigned int *& cell_counts, MPI_Comm mpiComm)
+  static void Transpose(int row_count, T *& cells, unsigned int *& counts, unsigned int *& displs, unsigned int *& cell_counts, MPI_Comm comm)
   {
       int mpi_size=-1;
       MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
@@ -61,18 +61,18 @@ public:
       MPI_Allgather(&row_count, 1, MPI_UNSIGNED, rank_row_counts, 1, MPI_UNSIGNED, MPI_COMM_WORLD);
       for (int i=0; i<mpi_size; i++)
         rank_end_offsets[i] = i==0 ? rank_row_counts[i]-1 : rank_row_counts[i] + rank_end_offsets[i-1];
-      Transpose(rank_end_offsets, cells, counts, displs, cell_counts, mpiComm);
+      Transpose(rank_end_offsets, cells, counts, displs, cell_counts, comm);
       delete [] rank_row_counts;
       delete [] rank_end_offsets;
   }
 
   /// Use-case 2: with pre-computed rank end offsets
-  static void Transpose(unsigned int * rank_end_offsets, T *& cells, unsigned int *& counts, unsigned int *& displs, unsigned int *& cell_counts, MPI_Comm mpiComm)
+  static void Transpose(unsigned int * rank_end_offsets, T *& cells, unsigned int *& counts, unsigned int *& displs, unsigned int *& cell_counts, MPI_Comm comm)
   {
     //MPI variables
     int mpi_size=-1, mpi_rank=-1;;
-    MPI_Comm_rank(mpiComm, &mpi_rank);
-    MPI_Comm_size(mpiComm, &mpi_size);
+    MPI_Comm_rank(comm, &mpi_rank);
+    MPI_Comm_size(comm, &mpi_size);
 
     unsigned int my_first_row_id = mpi_rank==0 ? 0 : rank_end_offsets[mpi_rank-1]+1;
     unsigned int my_row_count = rank_end_offsets[mpi_rank] - (mpi_rank==0 ? -1 : rank_end_offsets[mpi_rank-1]);
@@ -153,7 +153,7 @@ public:
     }
 
     //share the amount of data to be received by each other cpu
-    MPI_Alltoall(sendcounts, 1, MPI_INT, recvcounts, 1, MPI_INT, mpiComm);
+    MPI_Alltoall(sendcounts, 1, MPI_INT, recvcounts, 1, MPI_INT, comm);
 
     //calculate offset for the data sent/received
     for (int cpu=0; cpu<mpi_size; cpu++)
@@ -167,7 +167,7 @@ public:
     Metadata * metadatas_T = new Metadata[my_col_count_T];
 
     //send around the table structure of the elements to be received
-    MPI_Alltoallv(metadatas, sendcounts, sentdispls, MPI_BYTE, metadatas_T, recvcounts, recvdispls, MPI_BYTE, mpiComm);
+    MPI_Alltoallv(metadatas, sendcounts, sentdispls, MPI_BYTE, metadatas_T, recvcounts, recvdispls, MPI_BYTE, comm);
 
     //3rd step: now we will send the respective cells to each CPU
     for (int cpu=0; cpu<mpi_size; cpu++)
@@ -182,7 +182,7 @@ public:
     delete [] metadatas; metadatas=NULL;
 
     //share the amount of data to be received by each other cpu
-    MPI_Alltoall(sendcounts, 1, MPI_INT, recvcounts, 1, MPI_INT, mpiComm);
+    MPI_Alltoall(sendcounts, 1, MPI_INT, recvcounts, 1, MPI_INT, comm);
 
     //calculate offset for the data sent/received
     for (int cpu=0; cpu<mpi_size; cpu++)
@@ -194,7 +194,7 @@ public:
     //receives data
     unsigned int total_cell_count_T = (recvdispls[mpi_size-1] + recvcounts[mpi_size-1])/sizeof(T);
     T * cells_T = new T[total_cell_count_T];
-    MPI_Alltoallv(cells, sendcounts, sentdispls, MPI_BYTE, cells_T, recvcounts, recvdispls, MPI_BYTE, mpiComm);
+    MPI_Alltoallv(cells, sendcounts, sentdispls, MPI_BYTE, cells_T, recvcounts, recvdispls, MPI_BYTE, comm);
 
     delete [] cells; cells=NULL;
     delete [] sendcounts; sendcounts = NULL;
