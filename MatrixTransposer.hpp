@@ -51,7 +51,6 @@ private:
   
 public:
 
-
   /// Use-case 1: no pre-computed rank end offsets
   static void Transpose(int row_count, T *& cells, unsigned int *& counts, unsigned int *& displs, unsigned int *& cell_counts, MPI_Comm mpiComm)
   {
