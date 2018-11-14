@@ -30,11 +30,8 @@ int main(int argv, char** argc) {
   unsigned int row_count = GenerateRandomNumber(3, 4);
 
   // rank end offsets and first row id of this rank
-  unsigned int total_row_count = 0;
   unsigned int* rank_row_counts = new unsigned int[mpi_size];
   MPI_Allgather(&row_count, 1, MPI_UNSIGNED, rank_row_counts, 1, MPI_UNSIGNED,
-                MPI_COMM_WORLD);
-  MPI_Allreduce(&row_count, &total_row_count, 1, MPI_UNSIGNED, MPI_SUM,
                 MPI_COMM_WORLD);
 
   unsigned int* rank_end_offsets = new unsigned int[mpi_size];
@@ -43,10 +40,11 @@ int main(int argv, char** argc) {
                                  : rank_row_counts[r] + rank_end_offsets[r - 1];
   unsigned int first_row_id =
       mpi_rank == 0 ? 0 : rank_end_offsets[mpi_rank - 1] + 1;
+  unsigned int total_row_count = rank_end_offsets[mpi_size - 1]+1;
 
   unsigned int* counts = new unsigned int[row_count];
 
-  long long col_count = 0, total_column_count = 0;
+  long long col_count = 0, total_col_count=0;
   for (unsigned int i = 0; i < row_count; i++) {
     // counts[i] = GenerateRandomNumber (1, row_count);
     counts[i] = 2;
@@ -67,12 +65,12 @@ int main(int argv, char** argc) {
     }
   }
 
+  MPI_Allreduce(&col_count, &total_col_count, 1, MPI_LONG_LONG, MPI_SUM,
+                MPI_COMM_WORLD);
   MPI_Allreduce(&cell_count, &total_cell_count, 1, MPI_LONG_LONG, MPI_SUM,
                 MPI_COMM_WORLD);
-  MPI_Allreduce(&col_count, &total_column_count, 1, MPI_LONG_LONG, MPI_SUM,
-                MPI_COMM_WORLD);
-  if (mpi_rank == 0) printf("total column count: %lld\n", total_column_count);
-  if (mpi_rank == 0) printf("total cell count: %lld\n", total_cell_count);
+  if (mpi_rank == 0) printf("mpi size: %d; row count: %d; column count:%lld; cell count: %lld\n",
+                             mpi_size, total_row_count, total_col_count, total_cell_count);
 
   int* cells = new int[cell_count];
   for (unsigned int i = 0; i < cell_count; i++)
@@ -97,12 +95,10 @@ int main(int argv, char** argc) {
         fprintf(stderr, "\n");
       }
     }
-    fprintf(stderr, "\n");
+    MPI_Barrier(MPI_COMM_WORLD);
   }
 #endif
-
   MPI_Barrier(MPI_COMM_WORLD);
-  if (mpi_rank == 0) fprintf(stderr, "Started.\n");
   clock_t t_start = clock();
   MatrixTransposer<int>::Transpose(rank_end_offsets, cells, counts, displs,
                                    cell_counts, MPI_COMM_WORLD);
@@ -114,9 +110,9 @@ int main(int argv, char** argc) {
   col_id = 0, cell_id = 0;
   for (int i = 0; i < mpi_size; i++) {
     if (mpi_rank == i) {
-      fprintf(stderr, "RANK %d\n", mpi_rank);
+      fprintf(stderr, "rank %d\n", mpi_rank);
       for (unsigned int r = 0; r < row_count; r++) {
-        fprintf(stderr, "ROW %d (%d cols) ::", r + first_row_id, counts[r]);
+        fprintf(stderr, "row %d (%d cols) ::", r + first_row_id, counts[r]);
         for (unsigned int c = 0; c < counts[r]; c++) {
           fprintf(stderr, "[id %d, %d cell] ", displs[col_id],
                   cell_counts[col_id]);
@@ -125,7 +121,6 @@ int main(int argv, char** argc) {
           col_id++;
           fprintf(stderr, ", ");
         }
-        fprintf(stderr, "\n");
       }
     }
     MPI_Barrier(MPI_COMM_WORLD);

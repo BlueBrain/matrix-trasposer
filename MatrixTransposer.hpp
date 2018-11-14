@@ -95,13 +95,7 @@ class MatrixTransposer {
        them: we perform a sorting based on target rank, then col id (since its
        the row for transposed matrix), and then on row (transposed column)*/
 
-    unsigned int total_row_count = rank_end_offsets[mpi_size - 1];
-#ifndef NDEBUG  // TODO delete (debug step only)
-    unsigned int total_row_count_1 = 0;
-    MPI_Allreduce(&my_row_count, &total_row_count_1, 1, MPI_UNSIGNED, MPI_SUM,
-                  MPI_COMM_WORLD);
-    assert(total_row_count == total_row_count_1);
-#endif
+    unsigned int total_row_count = rank_end_offsets[mpi_size - 1]+1;
 
     // builds a map of which rank is assinged to each row
     unsigned int* rank_per_row_id = new unsigned int[total_row_count];
@@ -150,10 +144,6 @@ class MatrixTransposer {
     int* sentdispls = new int[mpi_size]();
     int* recvdispls = new int[mpi_size]();
 
-#ifndef NDEBUG  // TODO delete
-    for (int r = 0; r < mpi_size; r++) {assert(sendcounts[r] == 0);}
-#endif
-
     for (unsigned int c = 0; c < my_col_count; c++)
       sendcounts[metadatas[c].rank] += sizeof(Metadata);
 
@@ -183,9 +173,6 @@ class MatrixTransposer {
     for (unsigned int c = 0; c < my_col_count; c++)
       sendcounts[metadatas[c].rank] += metadatas[c].cell_count * sizeof(T);
 
-    delete[] metadatas;
-    metadatas = NULL;
-
     // exchange element sizes to be received by each rank
     MPI_Alltoall(sendcounts, 1, MPI_INT, recvcounts, 1, MPI_INT, comm);
 
@@ -213,6 +200,8 @@ class MatrixTransposer {
     sentdispls = NULL;
     delete[] recvdispls;
     recvdispls = NULL;
+    delete [] metadatas;
+    metadatas = NULL;
 
     // 4th we will reconvert the multiple transposed matrices, into a single
     // matrix

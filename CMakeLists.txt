@@ -1,6 +1,7 @@
 project(transposer LANGUAGES CXX)
 cmake_minimum_required(VERSION 2.8)
 set (CMAKE_CXX_STANDARD 11)
+set (CMAKE_BUILD_TYPE Release)
 
 find_package(MPI REQUIRED)
 include_directories(SYSTEM ${MPI_INCLUDE_PATH})
