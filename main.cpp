@@ -15,19 +15,28 @@ int GenerateRandomNumber(int min, int max) {
   return rand() % (max - min) + min;
 }
 
+typedef int Transpose_t;
+
 /**
  * @brief main Generates a random sparse matrix and transposes it
  * @return
  */
 int main(int argv, char** argc) {
+  assert(argv==2); //first argument (0: weak scaling, 1: strong scaling)
+  int scaling = (int) atoi(argc[1]);
+  assert(scaling==0 || scaling==1);
+
   // MPI and random seed init
   int mpi_size = -1, mpi_rank = -1;
   MPI_Init(&argv, &argc);
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
   MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
-  srand(time(NULL) / (mpi_rank + 1));
+  srand(mpi_rank + 1);
 
-  unsigned int row_count = GenerateRandomNumber(3, 4);
+  for (int scale=1; scale<=32; scale*=2)
+  {
+  //unsigned int row_count = GenerateRandomNumber(512, 4098);
+  unsigned int row_count = 4096*scale; //GenerateRandomNumber(3, 4);
 
   // rank end offsets and first row id of this rank
   unsigned int* rank_row_counts = new unsigned int[mpi_size];
@@ -47,7 +56,7 @@ int main(int argv, char** argc) {
   long long col_count = 0, total_col_count=0;
   for (unsigned int i = 0; i < row_count; i++) {
     // counts[i] = GenerateRandomNumber (1, row_count);
-    counts[i] = 2;
+    counts[i] = 512;
     col_count += counts[i];
   }
 
@@ -58,7 +67,7 @@ int main(int argv, char** argc) {
     for (unsigned int j = 0; j < counts[i]; j++) {
       displs[col_id] = total_row_count * j / counts[i];
       assert(displs[col_id] < total_row_count);
-      cell_counts[col_id] = 1;
+      cell_counts[col_id] = 10;
       // cell_count[col_id]= GenerateRandomNumber(2,20);
       cell_count += cell_counts[col_id];
       col_id++;
@@ -72,9 +81,9 @@ int main(int argv, char** argc) {
   if (mpi_rank == 0) printf("mpi size: %d; row count: %d; column count:%lld; cell count: %lld\n",
                              mpi_size, total_row_count, total_col_count, total_cell_count);
 
-  int* cells = new int[cell_count];
-  for (unsigned int i = 0; i < cell_count; i++)
-    cells[i] = GenerateRandomNumber(0, 8);
+  Transpose_t* cells = new Transpose_t[cell_count];
+  //for (unsigned int i = 0; i < cell_count; i++)
+  //  cells[i] = GenerateRandomNumber(0, 8);
 
 #ifndef NDEBUG
   col_id = 0;
@@ -87,8 +96,8 @@ int main(int argv, char** argc) {
         for (unsigned int c = 0; c < counts[r]; c++) {
           fprintf(stderr, "[id %d, %d cell] ", displs[col_id],
                   cell_counts[col_id]);
-          for (unsigned int e = 0; e < cell_counts[col_id]; e++)
-            fprintf(stderr, "%d ", cells[cell_id++]);
+          //for (unsigned int e = 0; e < cell_counts[col_id]; e++)
+          //  fprintf(stderr, "%d ", cells[cell_id++]);
           col_id++;
           fprintf(stderr, ", ");
         }
@@ -100,12 +109,16 @@ int main(int argv, char** argc) {
 #endif
   MPI_Barrier(MPI_COMM_WORLD);
   clock_t t_start = clock();
-  MatrixTransposer<int>::Transpose(rank_end_offsets, cells, counts, displs,
+  MatrixTransposer<Transpose_t>::Transpose(rank_end_offsets, cells, counts, displs,
                                    cell_counts, MPI_COMM_WORLD);
-  if (mpi_rank == 0)
-    fprintf(stderr, "Finished. Time taken: %.2fs\n",
-            (double)(clock() - t_start) / CLOCKS_PER_SEC);
   MPI_Barrier(MPI_COMM_WORLD);
+  double t_end = (double)(clock() - t_start) / CLOCKS_PER_SEC;
+  if (mpi_rank == 0)
+    printf("Finished. Time taken: %.2f seg\n",t_end);
+
+  if (mpi_rank == 0)
+    fprintf(stderr, "csv,%d,%lld,%lld,%lld,%.2f\n",
+           mpi_size, total_row_count, total_col_count, total_cell_count,t_end);
 
 #ifndef NDEBUG
   col_id = 0, cell_id = 0;
@@ -117,8 +130,8 @@ int main(int argv, char** argc) {
         for (unsigned int c = 0; c < counts[r]; c++) {
           fprintf(stderr, "[id %d, %d cell] ", displs[col_id],
                   cell_counts[col_id]);
-          for (unsigned int e = 0; e < cell_counts[col_id]; e++)
-            fprintf(stderr, "%d ", cells[cell_id++]);
+          //for (unsigned int e = 0; e < cell_counts[col_id]; e++)
+          //  fprintf(stderr, "%d ", cells[cell_id++]);
           col_id++;
           fprintf(stderr, ", ");
         }
@@ -129,5 +142,11 @@ int main(int argv, char** argc) {
   }
 #endif
 
+  delete [] rank_end_offsets;
+  delete [] rank_row_counts;
+  delete [] counts;
+  delete [] displs;
+  delete [] cells;
+  }
   return 0;
 }
