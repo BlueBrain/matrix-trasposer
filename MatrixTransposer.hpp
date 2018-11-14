@@ -3,6 +3,7 @@
 #include <mpi.h>
 #include <cassert>
 #include <cstdlib>
+#include <cstring>
 
 template <class T>
 class MatrixTransposer {
@@ -37,7 +38,7 @@ class MatrixTransposer {
     for (unsigned int c = 0; c < col_count; c++) {
       // copy column's cells
       void* firstCell = metadatas[c].cells;
-      memcpy(&(cells_temp[cell_id]), firstCell,
+      std::memcpy(&(cells_temp[cell_id]), firstCell,
              sizeof(T) * metadatas[c].cell_count);
 
       cell_id += metadatas[c].cell_count;
@@ -150,7 +151,7 @@ class MatrixTransposer {
     int* recvdispls = new int[mpi_size]();
 
 #ifndef NDEBUG  // TODO delete
-    for (int r = 0; r < mpi_size; r++) assert(sendcounts[r]) == 0;
+    for (int r = 0; r < mpi_size; r++) {assert(sendcounts[r] == 0);}
 #endif
 
     for (unsigned int c = 0; c < my_col_count; c++)
