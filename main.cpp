@@ -105,6 +105,7 @@ int main(int argv, char** argc) {
   if (mpi_rank == 0)
     fprintf(stderr, "Finished. Time taken: %.2fs\n",
             (double)(clock() - t_start) / CLOCKS_PER_SEC);
+  MPI_Barrier(MPI_COMM_WORLD);
 
 #ifndef NDEBUG
   col_id = 0, cell_id = 0;
