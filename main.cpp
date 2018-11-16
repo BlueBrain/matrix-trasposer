@@ -15,6 +15,7 @@ int GenerateRandomNumber(int min, int max) {
   return rand() % (max - min) + min;
 }
 
+/// data type for elements in a cell
 typedef int Transpose_t;
 
 /**
@@ -22,7 +23,8 @@ typedef int Transpose_t;
  * @return
  */
 int main(int argv, char** argc) {
-  assert(argv==2); //first argument (0: weak scaling, 1: strong scaling)
+  //first argument: 0: weak scaling, 1: strong scaling
+  assert(argv>=2); 
   int scaling = (int) atoi(argc[1]);
   assert(scaling==0 || scaling==1);
 
@@ -33,10 +35,10 @@ int main(int argv, char** argc) {
   MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
   srand(mpi_rank + 1);
 
-  for (int scale=1; scale<=32; scale*=2)
+  for (int scale=1; scale<=128; scale*=2)
   {
   //unsigned int row_count = GenerateRandomNumber(512, 4098);
-  unsigned int row_count = 4096*scale; //GenerateRandomNumber(3, 4);
+  unsigned int row_count = scaling ==0 ? 4096*scale : 32768/mpi_size*scale ;
 
   // rank end offsets and first row id of this rank
   unsigned int* rank_row_counts = new unsigned int[mpi_size];
@@ -67,8 +69,8 @@ int main(int argv, char** argc) {
     for (unsigned int j = 0; j < counts[i]; j++) {
       displs[col_id] = total_row_count * j / counts[i];
       assert(displs[col_id] < total_row_count);
-      cell_counts[col_id] = 10;
       // cell_count[col_id]= GenerateRandomNumber(2,20);
+      cell_counts[col_id] = 10;
       cell_count += cell_counts[col_id];
       col_id++;
     }
@@ -115,10 +117,7 @@ int main(int argv, char** argc) {
   double t_end = (double)(clock() - t_start) / CLOCKS_PER_SEC;
   if (mpi_rank == 0)
     printf("Finished. Time taken: %.2f seg\n",t_end);
-
-  if (mpi_rank == 0)
-    fprintf(stderr, "csv,%d,%lld,%lld,%lld,%.2f\n",
-           mpi_size, total_row_count, total_col_count, total_cell_count,t_end);
+  MPI_Barrier(MPI_COMM_WORLD);
 
 #ifndef NDEBUG
   col_id = 0, cell_id = 0;
